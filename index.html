@@ -1,0 +1,159 @@
+<!DOCTYPE html><html lang="pt-br">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Controle Diesel</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+body { font-family: Arial; background:#000; color:#fff; }
+.container { max-width:900px; margin:auto; padding:20px; }
+h1 { color:#c68c2f; text-align:center; }input, button { padding:10px; margin:5px 0; border:none; border-radius:5px; } input { width:100%; } button { background:#c68c2f; color:#000; cursor:pointer; }
+
+.card { background:#111; padding:15px; margin-top:10px; border-radius:10px; }
+
+.table { width:100%; margin-top:10px; border-collapse: collapse; } .table th, .table td { padding:8px; border-bottom:1px solid #333; } </style>
+
+</head>
+<body>
+<div class="container">
+<h1>Controle de Diesel</h1><div class="card">
+<label>Data:</label>
+<input id="data" type="date"><label>KM:</label> <input id="km" type="number">
+
+<label>Litros:</label> <input id="litros" type="number">
+
+<label>Preço Diesel (R$):</label> <input id="preco" type="text" placeholder="3,24">
+
+<label>Peso (t):</label> <input id="peso" type="number">
+
+<button onclick="add()">Adicionar</button> <button onclick="limpar()">Limpar Tudo</button>
+
+</div><div class="card">
+<h3>Média Atual: <span id="media">0.00</span></h3>
+<h3>Meta: 2.55</h3>
+<h3>Gasto do Mês: R$ <span id="gastoMes">0.00</span></h3>
+</div><canvas id="grafico"></canvas>
+
+<div class="card">
+<h3>Histórico</h3>
+<table class="table" id="tabela">
+<tr><th>Data</th><th>KM</th><th>Distância</th><th>Litros</th><th>Média</th><th>R$</th><th>Ação</th></tr>
+</table>
+</div>
+</div><script>
+let dados = JSON.parse(localStorage.getItem('dados')) || [];
+
+function salvar(){
+localStorage.setItem('dados', JSON.stringify(dados));
+atualizar();
+}
+
+function parsePreco(valor){
+return parseFloat(valor.replace(',','.')) || 0;
+}
+
+function add(){
+let data = document.getElementById('data').value;
+let km = parseFloat(document.getElementById('km').value);
+let litros = parseFloat(document.getElementById('litros').value);
+let preco = parsePreco(document.getElementById('preco').value);
+let peso = parseFloat(document.getElementById('peso').value);
+
+if(!km) return alert('Informe KM');
+
+let media = 0;
+let distancia = 0;
+
+if(dados.length > 0 && litros){
+let ultimoKm = dados[dados.length-1].km;
+distancia = km - ultimoKm;
+
+if(distancia > 0){
+media = distancia / litros;
+}
+}
+
+let valor = litros * preco;
+
+dados.push({data, km, litros, preco, peso, media, valor, distancia});
+salvar();
+}
+
+function excluir(i){
+dados.splice(i,1);
+salvar();
+}
+
+function limpar(){
+if(confirm('Apagar tudo?')){
+dados=[];
+salvar();
+}
+}
+
+function atualizar(){
+let tabela = document.getElementById('tabela');
+tabela.innerHTML = '<tr><th>Data</th><th>KM</th><th>Distância</th><th>Litros</th><th>Média</th><th>R$</th><th>Ação</th></tr>';
+
+let totalKm = 0;
+let totalLitros = 0;
+let gastoMes = 0;
+
+let labels=[];
+let medias=[];
+
+for(let i=0;i<dados.length;i++){
+let d = dados[i];
+
+let dist = 0;
+if(i>0){
+dist = d.km - dados[i-1].km;
+if(dist > 0){
+totalKm += dist;
+totalLitros += d.litros;
+gastoMes += d.valor;
+}
+}
+
+let tr = `<tr>
+<td>${d.data || '-'}</td>
+<td>${d.km}</td>
+<td>${dist > 0 ? dist : '-'}</td>
+<td>${d.litros || '-'}</td>
+<td>${d.media?d.media.toFixed(2):'-'}</td>
+<td>${d.valor?d.valor.toFixed(2):'-'}</td>
+<td><button onclick="excluir(${i})">X</button></td>
+</tr>`;
+
+ tabela.innerHTML += tr;
+
+ if(i>0){
+ labels.push(i);
+ medias.push(d.media || 0);
+ }
+}
+
+let mediaFinal = totalLitros > 0 ? totalKm / totalLitros : 0;
+
+document.getElementById('media').innerText = mediaFinal.toFixed(2);
+document.getElementById('gastoMes').innerText = gastoMes.toFixed(2);
+
+if(window.graf) window.graf.destroy();
+window.graf = new Chart(document.getElementById('grafico'),{
+type:'line',
+data:{
+labels:labels,
+datasets:[{
+label:'Média',
+data:medias
+},{
+label:'Meta 2.55',
+data:labels.map(()=>2.55)
+}]
+}
+});
+}
+
+atualizar();
+</script></body>
+</html>
